@@ -2,13 +2,17 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const qrcode = require('qrcode-terminal');
 const { Client } = require('whatsapp-web.js');
+const http = require('http');
+const socketIo = require('socket.io');
 
 const app = express();
 const port = 3000;
 
 app.use(bodyParser.json());
-const client = new Client();
+const server = http.createServer(app);
+const io = socketIo(server);
 
+const client = new Client();
 const messages = [];
 
 client.on('qr', qrCodeData => {
@@ -39,6 +43,8 @@ client.on('message', async message => {
 
         messages.push(formattedMessage);
 
+        io.emit('newMessage', formattedMessage);
+
         console.log(name + ": " + message.body);
     } catch (error) {
         console.error('Error retrieving contact information:', error);
@@ -46,11 +52,6 @@ client.on('message', async message => {
 });
 
 client.initialize();
-
-function generateBase64Image(qrCodeData) {
-    const dataUri = 'data:image/png;base64,' + qrCodeData.split(',')[1];
-    return dataUri;
-}
 
 app.get('/qr', (req, res) => {
     const qrCodeData = app.get('qrCodeData');
@@ -66,7 +67,10 @@ app.get('/message', (req, res) => {
     res.json(messages);
 });
 
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}.`);
+io.on('connection', socket => {
+    console.log('Client connected');
 });
 
+server.listen(port, () => {
+    console.log(`Server is running on port ${port}.`);
+});
