@@ -4,10 +4,12 @@ const qrcode = require('qrcode-terminal');
 const { Client } = require('whatsapp-web.js');
 
 const app = express();
-const port = 3000; 
+const port = 3000;
 
 app.use(bodyParser.json());
 const client = new Client();
+
+const messages = [];
 
 client.on('qr', qrCodeData => {
     qrcode.generate(qrCodeData, { small: true });
@@ -22,6 +24,25 @@ client.on('qr', qrCodeData => {
 
 client.on('ready', () => {
     console.log('Client is ready!');
+});
+
+client.on('message', async message => {
+    try {
+        const contact = await message.getContact();
+        const name = contact.name || 'Unknown';
+
+        const formattedMessage = {
+            sender: name,
+            body: message.body,
+            timestamp: message.timestamp,
+        };
+
+        messages.push(formattedMessage);
+
+        console.log(name + ": " + message.body);
+    } catch (error) {
+        console.error('Error retrieving contact information:', error);
+    }
 });
 
 client.initialize();
@@ -41,14 +62,8 @@ app.get('/qr', (req, res) => {
     });
 });
 
-client.on('message', async message => {
-    try {
-        const contact = await message.getContact();
-        const name = contact.name || 'Unknown';
-        console.log(name + ": " + message.body);
-    } catch (error) {
-        console.error('Error retrieving contact information:', error);
-    }
+app.get('/message', (req, res) => {
+    res.json(messages);
 });
 
 app.listen(port, () => {
